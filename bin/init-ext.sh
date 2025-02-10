@@ -4,6 +4,14 @@
 #
 set -ex
 
+install_requirements_file () {
+    if [ "$TOOL" = "uv" ]; then
+        uv pip install --system -r "$1"
+    else
+        pip install -r "$1"
+    fi
+}
+
 install_requirements () {
     PROJECT_DIR=$1
     shift
@@ -12,21 +20,21 @@ install_requirements () {
     for filename_pattern in "$@"; do
         filename="$PROJECT_DIR/${filename_pattern}-$CKAN_VERSION.txt"
         if [ -f "$filename" ]; then
-            pip install -r "$filename"
+            install_requirements_file "$filename"
             return 0
         fi
     done
     for filename_pattern in "$@"; do
         filename="$PROJECT_DIR/${filename_pattern}-$PYTHON_VERSION.txt"
         if [ -f "$filename" ]; then
-            pip install -r "$filename"
+            install_requirements_file "$filename"
             return 0
         fi
     done
     for filename_pattern in "$@"; do
         filename="$PROJECT_DIR/$filename_pattern.txt"
         if [ -f "$filename" ]; then
-            pip install -r "$filename"
+            install_requirements_file "$filename"
             return 0
         fi
     done
@@ -35,10 +43,8 @@ install_requirements () {
 . "${APP_DIR}"/bin/activate
 install_requirements . dev-requirements requirements-dev
 for extension in . `ls -d $SRC_DIR/ckanext-*`; do
-    install_requirements $extension requirements pip-requirements
+    TOOL=uv install_requirements $extension requirements pip-requirements
 done
-# force version that declares itself to be incompatible but actually works
-pip install click==8.1.7
 pip install -e .
 installed_name=$(grep '^\s*name=' setup.py |sed "s|[^']*'\([-a-zA-Z0-9]*\)'.*|\1|")
 
