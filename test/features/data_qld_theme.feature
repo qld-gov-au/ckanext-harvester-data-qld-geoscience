@@ -14,6 +14,12 @@ Feature: Theme customisations
         Then I should see "jQuery"
 
     @unauthenticated
+    Scenario: As a member of the public, when I go to api get urls, I can see a valid response
+        Given "Unauthenticated" as the persona
+        When I visit "/api/3/action/package_search?q=a"
+        Then I should see "/api/3/action/help_show?name=package_search", "success": true, "result":"
+
+    @unauthenticated
     Scenario: Lato font is implemented on homepage
         Given "Unauthenticated" as the persona
         When I go to homepage
@@ -34,7 +40,7 @@ Feature: Theme customisations
         Then I should see "Create an Organisation"
         When I execute the script "$('#field-name').val('Org without description')"
         And I execute the script "$('#field-url').val('org-without-description')"
-        And I press the element with xpath "//button[contains(@class, 'btn-primary')]"
+        And I submit the main form
         Then I should see "Org without description"
         And I should see "No datasets found"
         And I should not see "There is no description"
@@ -48,7 +54,7 @@ Feature: Theme customisations
         When I execute the script "$('#field-name').val('Org with description')"
         And I execute the script "$('#field-url').val('org-with-description')"
         And I fill in "description" with "Some description or other"
-        And I press the element with xpath "//button[contains(@class, 'btn-primary')]"
+        And I submit the main form
         Then I should see "Org with description"
         And I should see "No datasets found"
         And I should see "Some description or other"

@@ -15,7 +15,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/specifications/version-specifiers/#version-specifiers
-    version='0.0.8',
+    version='0.1.1',
 
     description='Custom harvesters for Data.Qld',
     long_description=long_description,

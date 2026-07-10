@@ -8,6 +8,8 @@ Feature: Data Request
         Given "Unauthenticated" as the persona
         When I go to the data requests page
         Then the browser's URL should contain "/datarequest"
+        And I should see an element with xpath "//nav[@aria-label = 'State']"
+        And I should see an element with xpath "//span[contains(@class, 'item-label') and string() = 'Open']"
         And I should not see an element with xpath "//a[contains(translate(string(), 'DR', 'dr'), 'Add data request')]"
 
     @unauthenticated
@@ -17,6 +19,8 @@ Feature: Data Request
         And I click the link with text that contains "Test Organisation"
         And I press the element with xpath "//ul[contains(@class, 'nav-tabs')]//a[contains(string(), 'Data Requests')]"
         Then the browser's URL should contain "/organization/datarequest"
+        And I should see an element with xpath "//nav[@aria-label = 'State']"
+        And I should see an element with xpath "//span[contains(@class, 'item-label') and string() = 'Open']"
         And I should see an element with xpath "//input[contains(@aria-label, 'Search Data Requests')]"
         And I should see an element with xpath "//ol[contains(@class, 'breadcrumb')]//a[contains(@href, '/organization')]"
         And I should see an element with xpath "//ol[contains(@class, 'breadcrumb')]//a[contains(@href, '/organization/') and contains(string(), 'Test Organisation')]"
@@ -24,9 +28,12 @@ Feature: Data Request
     Scenario: User data request page is accessible via the user profile
         Given "CKANUser" as the persona
         When I log in
+        And I create a datarequest
         And I go to the "ckan_user" profile page
         And I press the element with xpath "//ul[contains(@class, 'nav-tabs')]//a[contains(string(), 'Data Requests')]"
         Then the browser's URL should contain "/user/datarequest"
+        And I should see an element with xpath "//nav[@aria-label = 'State']"
+        And I should see an element with xpath "//span[contains(@class, 'item-label') and string() = 'Open']"
         And I should see an element with xpath "//input[contains(@aria-label, 'Search Data Requests')]"
         And I should see an element with xpath "//ol[contains(@class, 'breadcrumb')]//a[contains(@href, '/user') and contains(string(), 'Users')]"
         And I should see an element with xpath "//ol[contains(@class, 'breadcrumb')]//a[contains(@href, '/user/') and contains(string(), 'CKAN User')]"
@@ -49,7 +56,7 @@ Feature: Data Request
         And I go to the data requests page
         And I press "Add data request"
         And I fill in "title" with "Test data request"
-        And I press the element with xpath "//button[contains(@class, 'btn-primary')]"
+        And I submit the main form
         Then I should see an element with the css selector "div.error-explanation.alert.alert-error" within 2 seconds
         And I should see "The form contains invalid entries" within 1 seconds
         And I should see an element with the css selector "span.error-block" within 1 seconds
@@ -145,7 +152,7 @@ Feature: Data Request
         And I press "Add data request"
         And I fill in title with random text
         And I fill in "description" with "Test throttling"
-        And I press the element with xpath "//button[contains(@class, 'btn-primary')]"
+        And I submit the main form
         Then I should see "Too many requests submitted, please wait"
 
     Scenario: As an org admin I can re-open a closed data request
