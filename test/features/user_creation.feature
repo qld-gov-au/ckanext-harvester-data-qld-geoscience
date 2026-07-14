@@ -7,7 +7,7 @@ Feature: User creation
         And I go to "/ckan-admin/config"
         Then I should see "Excluded display name words"
         When I fill in "ckanext.data_qld.excluded_display_name_words" with "gov"
-        And I press the element with xpath "//button[contains(@class, 'btn-primary')]"
+        And I submit the main form
 
     Scenario: SysAdmin create a new user to the site.
         Given "SysAdmin" as the persona
@@ -17,17 +17,18 @@ Feature: User creation
         And I should see "Displayed name"
         When I fill in "name" with "publisher_user"
         And I fill in "fullname" with "gov user"
-        And I press the element with xpath "//button[contains(@class, 'btn-primary')]"
+        And I submit the main form
         Then I should not see "The username cannot contain the word 'publisher'. Please enter another username."
         And I should not see "The displayed name cannot contain certain words such as 'publisher', 'QLD Government' or similar. Please enter another display name."
 
     Scenario: Non logged-in user register to the site.
         Given "Unauthenticated" as the persona
-        When I go to register page
+        When I expand the browser height
+        And I go to register page
         Then I should see an element with xpath "//input[@name='fullname']"
         And I should see "Displayed name"
         When I fill in "name" with "publisher_user"
         And I fill in "fullname" with "gov user"
-        And I press the element with xpath "//button[contains(@class, 'btn-primary')]"
+        And I submit the main form
         Then I should see "The username cannot contain the word 'publisher'. Please enter another username."
         And I should see "The displayed name cannot contain certain words such as 'publisher', 'QLD Government' or similar. Please enter another display name."
