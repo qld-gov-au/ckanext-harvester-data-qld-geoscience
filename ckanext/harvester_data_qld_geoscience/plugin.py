@@ -1,17 +1,17 @@
+from collections import OrderedDict
 import datetime
 import logging
 import six
 from six.moves.urllib.parse import urlencode
-import ckan.plugins as plugins
-import ckantoolkit as toolkit
+
+from ckan import model, plugins
+from ckan.lib.helpers import json
+import ckantoolkit as tk
+
+from ckanext.harvest.model import HarvestObject
+from ckanext.harvest.harvesters.ckanharvester import CKANHarvester, ContentFetchError, SearchError
 
 from . import helpers
-
-from ckanext.harvest.harvesters.ckanharvester import CKANHarvester, ContentFetchError, SearchError
-from ckan.lib.helpers import json
-from ckan import model
-from ckanext.harvest.model import HarvestObject
-from collections import OrderedDict
 
 
 log = logging.getLogger(__name__)
@@ -24,19 +24,17 @@ class GeoScienceCKANHarvester(CKANHarvester):
     plugins.implements(plugins.IFacets, inherit=True)
     plugins.implements(plugins.ITemplateHelpers, inherit=True)
     plugins.implements(plugins.IConfigurer)
-    if toolkit.check_ckan_version(max_version='2.8.99'):
-        plugins.implements(plugins.IRoutes, inherit=True)
 
     config = None
 
     # IConfigurer
     def update_config(self, config):
-        toolkit.add_template_directory(config, 'templates')
+        tk.add_template_directory(config, 'templates')
 
     # IFacets
     def dataset_facets(self, facets_dict, package_type):
         new_facets_dict = OrderedDict()
-        new_facets_dict['dataset_type'] = plugins.toolkit._('Data Portals')
+        new_facets_dict['dataset_type'] = tk._('Data Portals')
 
         return OrderedDict(list(new_facets_dict.items()) + list(facets_dict.items()))
 
@@ -54,7 +52,7 @@ class GeoScienceCKANHarvester(CKANHarvester):
             raise ValueError('No config set')
         {
             "dataset_type": "geoscience",
-            "license_id": "cc-by-4",
+            "license_id": "CC-BY-4.0",
             "security_classification": "PUBLIC",
             "version": "1.0",
             "update_frequency": "non-regular",
@@ -79,16 +77,16 @@ class GeoScienceCKANHarvester(CKANHarvester):
                                      'names/ids (i.e. strings)')
 
                 # Check if default groups exist
-                context = {'model': model, 'user': toolkit.g.user}
+                context = {'model': model, 'user': tk.g.user}
                 config_obj['default_group_dicts'] = []
                 for group_name_or_id in config_obj['default_groups']:
                     try:
-                        group = toolkit.get_action('group_show')(
+                        group = tk.get_action('group_show')(
                             context, {'id': group_name_or_id})
                         # save the dict to the config object, as we'll need it
                         # in the import_stage of every dataset
                         config_obj['default_group_dicts'].append(group)
-                    except toolkit.ObjectNotFound:
+                    except tk.ObjectNotFound:
                         raise ValueError('Default group not found')
 
                 config = json.dumps(config_obj)
@@ -148,12 +146,12 @@ class GeoScienceCKANHarvester(CKANHarvester):
 
         # Loop through the resources to compare data_last_updated field with last_modified
         data_last_updated = package_dict.get('data_last_updated')
-        data_last_updated = toolkit.get_validator('isodate')(data_last_updated, {}) if data_last_updated else None
+        data_last_updated = tk.get_validator('isodate')(data_last_updated, {}) if data_last_updated else None
         for resource in package_dict.get('resources', []):
             try:
                 resource_last_modified = resource.get('last_modified') or resource.get('metadata_modified')
-                last_modified = toolkit.get_validator('isodate')(resource_last_modified, {})
-            except toolkit.Invalid:
+                last_modified = tk.get_validator('isodate')(resource_last_modified, {})
+            except tk.Invalid:
                 log.warning('Invalid resource %s date format %s for harvest object %s ',
                             resource.get('id'), resource_last_modified, harvest_object.id)
                 continue
@@ -177,7 +175,6 @@ class GeoScienceCKANHarvester(CKANHarvester):
         '''
         log.debug('In CKANHarvester gather_stage (%s)',
                   harvest_job.source.url)
-        toolkit.requires_ckan_version(min_version='2.0')
         get_all_packages = True
 
         self._set_config(harvest_job.source.config)
@@ -371,29 +368,3 @@ class GeoScienceCKANHarvester(CKANHarvester):
             'harvester_data_qld_geoscience_custom_label_function': helpers.custom_label_function,
             'harvester_data_qld_geoscience_custom_label_function_list_dict_filter': helpers.custom_label_function_list_dict_filter,
         }
-
-    # IRoutes
-
-    def before_map(self, route_map):
-        from routes.mapper import SubMapper
-
-        with SubMapper(route_map, controller='package') as mapper:
-            # This is a pain, but re-assigning the dataset_read route using `before_map`
-            # appears to affect these routes, so we need to replicate them here
-            mapper.connect('search', '/dataset', action='search', highlight_actions='index search')
-            mapper.connect('dataset_new', '/dataset/new', action='new')
-            mapper.connect(
-                '/dataset/{action}',
-                requirements=dict(action='|'.join([
-                    'list',
-                    'autocomplete',
-                    'search'
-                ])))
-
-        controller = 'ckanext.qgov.common.controller:QGOVController'
-        with SubMapper(route_map, controller=controller) as mapper:
-            mapper.connect('dataset_read', '/dataset/{id}',
-                           action='read', ckan_icon='sitemap')
-            mapper.connect('geoscience_read', '/dataset/{id}',
-                           action='read', ckan_icon='sitemap')
-        return route_map

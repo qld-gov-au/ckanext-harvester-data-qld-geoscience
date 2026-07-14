@@ -11,6 +11,7 @@ from behave import when, then
 from behaving.personas.steps import *  # noqa: F401, F403
 from behaving.mail.steps import *  # noqa: F401, F403
 from behaving.web.steps import *  # noqa: F401, F403
+from behaving.web.steps.basic import should_see_within_timeout
 
 # Monkey-patch Selenium 3 to handle Python 3.9
 import base64
@@ -62,6 +63,11 @@ def go_to_home(context):
     """)
 
 
+@then(u'I should see text containing quotes `{text}`')
+def should_see_backquoted(context, text):
+    should_see_within_timeout(context, text)
+
+
 @when(u'I go to register page')
 def go_to_register_page(context):
     context.execute_steps(u"""
@@ -83,7 +89,13 @@ def log_in(context):
 @when(u'I expand the browser height')
 def expand_height(context):
     # Work around x=null bug in Selenium set_window_size
-    context.browser.driver.set_window_rect(x=0, y=0, width=1024, height=3072)
+    context.browser.driver.set_window_rect(x=0, y=0, width=1366, height=3072)
+
+
+@when(u'I narrow the browser to mobile width')
+def narrow_width(context):
+    # Work around x=null bug in Selenium set_window_size
+    context.browser.driver.set_window_rect(x=0, y=0, width=900, height=3072)
 
 
 @when(u'I log in directly')
@@ -129,11 +141,32 @@ def request_reset(context):
     """)
 
 
+@then(u'I should see a search facet for "{title}" truncated to "{truncated_title}"')
+def truncated_facet_visible(context, title, truncated_title):
+    context.execute_steps(u"""
+        Then I should see an element with xpath "//li[contains(@class, 'nav-item')]//a[contains(string(), '{truncated_title}') and contains(string(), '...') and (contains(@title, '{title}') or contains(@data-bs-title, '{title}'))]"
+    """.format(title=title, truncated_title=truncated_title))
+
+
+@then(u'I should see an active search facet for "{title}" truncated to "{truncated_title}"')
+def active_truncated_facet_visible(context, title, truncated_title):
+    context.execute_steps(u"""
+        Then I should see an element with xpath "//li[contains(@class, 'nav-item') and contains(@class, 'active')]//a[contains(string(), '{truncated_title}') and contains(string(), '...') and (contains(@title, '{title}') or contains(@data-bs-title, '{title}'))]"
+    """.format(title=title, truncated_title=truncated_title))
+
+
+@when(u'I press the search facet pointing to "{title}"')
+def press_search_facet(context, title):
+    context.execute_steps(u"""
+        When I press the element with xpath "//li[contains(@class, 'nav-item')]//a[contains(@title, '{0}') or contains(@data-bs-title, '{0}')]"
+    """.format(title))
+
+
 @when(u'I fill in "{name}" with "{value}" if present')
 def fill_in_field_if_present(context, name, value):
     context.execute_steps(u"""
         When I execute the script "field = $('#{0}'); if (!field.length) field = $('[name={0}]'); if (!field.length) field = $('#field-{0}'); field.val('{1}'); field.keyup();"
-    """.format(name, value))
+    """.format(name, value.replace("'", r"\'")))
 
 
 @when(u'I clear the URL field')
@@ -149,7 +182,7 @@ def confirm_dialog_if_present(context, text):
     if context.browser.is_element_present_by_xpath(dialog_xpath):
         parent_xpath = dialog_xpath
     elif context.browser.is_text_present(text):
-        parent_xpath = "//div[contains(string(), '{0}')]/..".format(text)
+        parent_xpath = "//div[contains(string(), '{0}')]".format(text)
     else:
         return
     button_xpath = parent_xpath + "//button[contains(@class, 'btn-primary')]"
@@ -170,7 +203,7 @@ def confirm_dataset_deletion_dialog_if_present(context):
         """)
     # Press the Confirm button whether it is in a dialog or a page
     context.execute_steps(u"""
-        When I press the element with xpath "//button[contains(@class, 'btn-primary') and contains(string(), 'Confirm') ]"
+        When I press the element with xpath "//div[@id='content']//button[contains(@class, 'btn-primary') and contains(string(), 'Confirm') ]"
         Then I should see "Dataset has been deleted"
     """)
 
@@ -178,12 +211,28 @@ def confirm_dataset_deletion_dialog_if_present(context):
 @when(u'I open the new resource form for dataset "{name}"')
 def go_to_new_resource_form(context, name):
     context.execute_steps(u"""
-        When I edit the "{0}" dataset
+        When I go to dataset "{0}"
+        And I take a debugging screenshot
     """.format(name))
+    if context.browser.is_element_present_by_xpath("//a[text() = 'Add new resource']"):
+        # QGov fork of CKAN adds this button to the dataset page
+        context.execute_steps(u"""
+            When I press "Add new resource"
+        """)
+        return
+
+    context.execute_steps(u"""
+        When I press the element with xpath "//div[contains(@class, 'action')]//a[contains(@href, '/dataset/edit/')]"
+    """)
     if context.browser.is_element_present_by_xpath("//*[contains(@class, 'btn-primary') and contains(string(), 'Next:')]"):
         # Draft dataset, proceed directly to resource form
         context.execute_steps(u"""
             When I press "Next:"
+        """)
+    elif context.browser.is_element_present_by_xpath("//*[contains(string(), 'Add new resource')]"):
+        # Existing dataset, browse to the resource form
+        context.execute_steps(u"""
+            When I press "Add new resource"
         """)
     else:
         # Existing dataset, browse to the resource form
@@ -256,8 +305,16 @@ def show_more_fields(context):
 @when(u'I edit the "{name}" dataset')
 def edit_dataset(context, name):
     context.execute_steps(u"""
-        When I visit "/dataset/edit/{0}"
+        When I go to dataset "{0}"
+        And I press the element with xpath "//div[contains(@class, 'action')]//a[contains(@href, '/dataset/edit/')]"
     """.format(name))
+
+
+@when(u'I press the resource edit button')
+def press_edit_resource(context):
+    context.execute_steps(u"""
+        When I press the element with xpath "//div[contains(@class, 'action')]//a[contains(@href, '/resource/') and contains(@href, '/edit')]"
+    """)
 
 
 @when(u'I select the "{licence_id}" licence')
@@ -282,7 +339,7 @@ def enter_resource_url(context, url):
     if url != "default":
         context.execute_steps(u"""
             When I clear the URL field
-            When I execute the script "$('#resource-edit [name=url]').val('{0}')"
+            And I execute the script "$('#resource-edit [name=url]').val('{0}')"
         """.format(url))
 
 
@@ -319,7 +376,7 @@ def fill_in_default_link_resource_fields(context):
 @when(u'I upload "{file_name}" of type "{file_format}" to resource')
 def upload_file_to_resource(context, file_name, file_format):
     context.execute_steps(u"""
-        When I execute the script "$('#resource-upload-button').trigger('click');"
+        When I execute the script "$('.resource-upload-field .btn-remove-url').trigger('click'); $('#resource-upload-button').trigger('click');"
         And I attach the file "{file_name}" to "upload"
         # Don't quote the injected string since it can have trailing spaces
         And I execute the script "document.getElementById('field-format').value='{file_format}'"
@@ -330,7 +387,7 @@ def upload_file_to_resource(context, file_name, file_format):
 @when(u'I upload schema file "{file_name}" to resource')
 def upload_schema_file_to_resource(context, file_name):
     context.execute_steps(u"""
-        When I execute the script "$('#field-schema-json ~ a.btn-remove-url').trigger('click');"
+        When I execute the script "$('div[data-module=resource-schema] a.btn-remove-url').trigger('click'); $('input[name=schema_upload]').show().parent().show().parent().show();"
         And I attach the file "{file_name}" to "schema_upload"
     """.format(file_name=file_name))
 
@@ -610,7 +667,7 @@ def go_to_admin_config(context):
 @when(u'I log out')
 def log_out(context):
     context.execute_steps(u"""
-        When I press the element with xpath "//*[@title='Log out']"
+        When I press the element with xpath "//*[@title='Log out' or @data-bs-title='Log out']"
         Then I should see "Log in"
     """)
 
@@ -629,6 +686,13 @@ def reload_page_every_n_until_find(context, xpath, seconds=5, reload_times=5):
             context.browser.reload()
 
     assert False, 'Element with xpath "{}" was not found'.format(xpath)
+
+
+@when(u'I submit the main form')
+def submit_form(context):
+    context.execute_steps("""
+        When I press the element with xpath "//div[@id='content']//button[contains(@class, 'btn-primary')]"
+    """)
 
 
 # ckanext-validation-schema-generator
@@ -751,7 +815,7 @@ def lock_account(context):
     for x in range(11):
         context.execute_steps(u"""
             When I attempt to log in with password "incorrect password"
-            Then I should see "Bad username or password or reCAPTCHA."
+            Then I should see "Bad username or password."
         """)
 
 
@@ -799,7 +863,7 @@ def create_datarequest_for_org(context, organisation_name):
         And I fill in "description" with "Test description"
         And I execute the script "$('#field-organizations option:contains("{0}")').attr('selected', true)"
         And I take a debugging screenshot
-        And I press the element with xpath "//button[contains(@class, 'btn-primary')]"
+        And I submit the main form
         And I take a debugging screenshot
     """.format(organisation_name))
 
@@ -829,4 +893,14 @@ def data_usability_rating_visible(context, score):
 def go_to_reporting_page(context):
     context.execute_steps(u"""
         When I visit "/dashboard/reporting"
+    """)
+
+# ckanext-validation
+
+
+@then(u'I should see a validation timestamp')
+def should_see_validation_timestamp(context):
+    context.execute_steps(u"""
+        Then I should see "Validation timestamp"
+        And I should see an element with xpath "//th[contains(string(), 'Validation timestamp')]/../td[contains(string(), '-') and contains(string(), ':') and contains(string(), '.')]"
     """)
